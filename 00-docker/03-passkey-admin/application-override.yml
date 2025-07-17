@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: ${PASSKEY_DB_URL}/passkey_admin
+    username: ${PASSKEY_DB_USER}
+    password: ${PASSKEY_DB_PW}
+  sql:
+    init:
+      mode: never # always, embedded, never
+      schema-locations: classpath:postgresql/schema.sql
+admin.default-user: true # the default value is true
+server:
+  port: 8001
+passkey:
+  webauthn-server:
+    base-url: http://host.docker.internal:8080 # passkey-server
+  metadata-manager:
+    base-url: http://host.docker.internal:8088 # passkey-metadata-manager

@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  # mariaDB
+  mariadb:
+    image: mariadb:11.3
+    env_file:
+      - ./.env
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpw
+    ports:
+      - "3306:3306"
+    volumes:
+#      - mariadb-data:/var/lib/mysql
+      - ./00-db_redis/mariadb/init.sql.mariadb.template:/templates/init.sql.template
+      - ./00-db_redis/mariadb/entrypoint-mariadb.sh:/entrypoint.sh
+    tmpfs:
+      - /var/lib/mysql
+    entrypoint:
+      - /entrypoint.sh
+
+  # MySQL
+  mysql:
+    image: mysql:8.3
+    env_file:
+      - ./.env
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpw
+    ports:
+      - "3307:3306"
+    volumes:
+#      - mysql-data:/var/lib/mysql
+      - ./00-db_redis/mysql/init.sql.mysql.template:/templates/init.sql.template
+      - ./00-db_redis/mysql/entrypoint-mysql.sh:/entrypoint.sh
+    tmpfs:
+      - /var/lib/mysql
+    entrypoint:
+      - /entrypoint.sh
+
+  # PostgreSQL
+  postgres:
+    image: postgres:16.3
+    hostname: postgresDB
+    env_file:
+      - ./.env
+    environment:
+      POSTGRES_DB: postgresDB
+      POSTGRES_USER: postgresUser
+      POSTGRES_PASSWORD: postgresPW
+    volumes:
+#      - postgres-data:/var/lib/postgresql/data
+      - ./00-db_redis/postgres/00.postgres.init.sql.template:/templates/init.sql.template
+      - ./00-db_redis/postgres/01.postgres.init.passkey.sql:/01.postgres.init.passkey.sql
+      - ./00-db_redis/postgres/02.postgres.init.passkey_admin.sql:/02.postgres.init.passkey_admin.sql
+      - ./00-db_redis/postgres/entrypoint-postgres.sh:/entrypoint.sh
+    tmpfs:
+      - /var/lib/postgresql/data
+    entrypoint:
+    - /entrypoint.sh
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:latest
+    hostname: redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  passkey-server:
+    image: ${PASSKEY_SERVER_IMAGE}
+    env_file:
+      - ./.env
+    environment:
+      - SPRING_CONFIG_ADDITIONAL_LOCATION=file:/config/application-override.yml
+    volumes:
+      - ./01-passkey-server/application-override.yml:/config/application-override.yml
+    ports:
+      - "8080:8080"  # service port
+    depends_on:
+      - ${PASSKEY_DB_TYPE}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  passkey-metadata-manager:
+    image: ${PASSKEY_METADATA_MANAGER_IMAGE}
+    env_file:
+      - ./.env
+    environment:
+      - SPRING_CONFIG_ADDITIONAL_LOCATION=file:/config/application-override.yml
+    volumes:
+    - ./02-passkey-metadata-manager/application-override.yml:/config/application-override.yml
+    ports:
+      - "8088:8088"  # service port
+    depends_on:
+      - ${PASSKEY_DB_TYPE}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  passkey-admin:
+    image: ${PASSKEY_ADMIN_IMAGE}
+    env_file:
+      - ./.env
+    environment:
+      - SPRING_CONFIG_ADDITIONAL_LOCATION=file:/config/application-override.yml
+    volumes:
+      - ./03-passkey-admin/application-override.yml:/config/application-override.yml
+    ports:
+      - "8001:8001"  # service port
+    depends_on:
+      - ${PASSKEY_DB_TYPE}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  mariadb-data:
+  mysql-data:
+  postgres-data:

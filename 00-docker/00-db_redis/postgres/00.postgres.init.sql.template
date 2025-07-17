@@ -1,0 +1,7 @@
+-- create user
+create user ${PASSKEY_DB_USER} with password '${PASSKEY_DB_PW}';
+
+-- create databases
+create database passkey with owner "${PASSKEY_DB_USER}";
+create database passkey_portal with owner "${PASSKEY_DB_USER}";
+create database passkey_admin with owner "${PASSKEY_DB_USER}";

@@ -1,0 +1,15 @@
+server:
+  port: 8080 # service port
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate # jpa ddl-auto 설정 update / validate / none
+  datasource: # db 설정
+    url: ${PASSKEY_DB_URL}/passkey
+    username: ${PASSKEY_DB_USER}
+    password: ${PASSKEY_DB_PW}
+  redis: # redis 설정
+    host: host.docker.internal
+    port: 6379
+    ssl:
+      enabled: false
