@@ -7,6 +7,9 @@ spring:
     init:
       mode: never # always, embedded, never
       schema-locations: classpath:postgresql/schema.sql
+  jpa:
+    hibernate:
+      ddl-auto: validate # jpa ddl-auto 설정 update / validate / none
 admin.default-user: true # the default value is true
 server:
   port: 8001
