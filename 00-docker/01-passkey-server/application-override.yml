@@ -13,3 +13,6 @@ spring:
     port: 6379
     ssl:
       enabled: false
+
+license:
+  key: ${LICENSE_KEY}

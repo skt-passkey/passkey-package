@@ -73,6 +73,7 @@ services:
       - ./.env
     environment:
       - SPRING_CONFIG_ADDITIONAL_LOCATION=file:/config/application-override.yml
+      - LICENSE_KEY=${PASSKEY_LICENSE_KEY}
     volumes:
       - ./01-passkey-server/application-override.yml:/config/application-override.yml
     ports:
