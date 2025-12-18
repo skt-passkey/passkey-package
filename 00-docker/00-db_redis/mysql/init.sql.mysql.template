@@ -245,7 +245,7 @@ CREATE TABLE IF NOT EXISTS large_blob (
 CREATE TABLE IF NOT EXISTS app_attest_receipt (
     id            BIGINT       AUTO_INCREMENT PRIMARY KEY,
     app_id        VARCHAR(165) NOT NULL,
-    certificate   LONGBLOB     NOT NULL,
+    certificate   BLOB         NOT NULL,
     client_hash   VARCHAR(255) NOT NULL,
     token         VARCHAR(255) NOT NULL,
     type          VARCHAR(255) NOT NULL,
@@ -254,7 +254,7 @@ CREATE TABLE IF NOT EXISTS app_attest_receipt (
     created_at    TIMESTAMP    NOT NULL,
     not_before    TIMESTAMP    NULL DEFAULT NULL,
     expires_at    TIMESTAMP    NOT NULL,
-    bytes         LONGBLOB     NOT NULL
+    bytes         BLOB         NOT NULL
 );
 
 
