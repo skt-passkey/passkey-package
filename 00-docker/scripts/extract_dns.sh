@@ -12,15 +12,43 @@ extract_dns_from_license() {
 
     # JWT 헤더에서 x5c 인증서 추출
     local HEADER=$(echo "$LICENSE_KEY" | cut -d'.' -f1)
-    local CERT_B64=$(echo "$HEADER" | base64 -d 2>/dev/null | sed -n 's/.*"x5c":\["\([^"]*\)".*/\1/p')
+
+    # Base64Url 디코딩을 위한 패딩 처리 및 문자 치환
+    # 1. - 와 _ 를 + 와 / 로 치환
+    # 2. 길이를 4의 배수로 맞추기 위해 = 패딩 추가
+    local B64_INPUT=$(echo "$HEADER" | tr '_-' '/+')
+    local LEN=${#B64_INPUT}
+    local MOD=$((LEN % 4))
+    if [ $MOD -eq 2 ]; then
+        B64_INPUT="${B64_INPUT}=="
+    elif [ $MOD -eq 3 ]; then
+        B64_INPUT="${B64_INPUT}="
+    fi
+
+    # base64 디코딩 (OS 호환성 처리)
+    local DECODED_HEADER=""
+    if echo "test" | base64 -d >/dev/null 2>&1; then
+        # Linux / Modern macOS
+        DECODED_HEADER=$(echo "$B64_INPUT" | base64 -d 2>/dev/null)
+    else
+        # Old macOS / BSD
+        DECODED_HEADER=$(echo "$B64_INPUT" | base64 -D 2>/dev/null)
+    fi
+
+    # x5c 필드 추출
+    local CERT_B64=$(echo "$DECODED_HEADER" | sed -n 's/.*"x5c":\["\([^"]*\)".*/\1/p')
 
     if [ -z "$CERT_B64" ]; then
         return 1
     fi
 
     # 인증서를 base64 디코딩하고 openssl로 처리
-    # test_header.sh에서 검증된 방식
-    printf '%s' "$CERT_B64" | base64 -d 2>/dev/null | openssl x509 -inform DER -text -noout 2>/dev/null | grep -oE "DNS:[^,]*" | head -1 | cut -d':' -f2
+    # 인증서 디코딩 시에도 호환성 고려
+    if echo "test" | base64 -d >/dev/null 2>&1; then
+        printf '%s' "$CERT_B64" | base64 -d 2>/dev/null | openssl x509 -inform DER -text -noout 2>/dev/null | grep -oE "DNS:[^,]*" | head -1 | cut -d':' -f2
+    else
+        printf '%s' "$CERT_B64" | base64 -D 2>/dev/null | openssl x509 -inform DER -text -noout 2>/dev/null | grep -oE "DNS:[^,]*" | head -1 | cut -d':' -f2
+    fi
 
     return 0
 }

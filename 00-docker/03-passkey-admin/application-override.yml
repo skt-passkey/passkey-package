@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${PASSKEY_DB_URL}/passkey_admin
+    url: ${PASSKEY_${PASSKEY_DB_TYPE:postgres}_URL}/passkey_admin
     username: ${PASSKEY_DB_USER}
     password: ${PASSKEY_DB_PW}
   sql:

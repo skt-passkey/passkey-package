@@ -1,8 +1,13 @@
-version: '3.8'
 
 services:
-  # mariaDB
-  mariadb:
+  # =============================================================================
+  # MariaDB Services
+  # =============================================================================
+
+  # MariaDB Memory Version (tmpfs - temporary storage)
+  mariadb_memory:
+    profiles:
+      - mariadb_memory
     image: mariadb:11.3
     env_file:
       - ./.env
@@ -11,7 +16,6 @@ services:
     ports:
       - "3306:3306"
     volumes:
-#      - mariadb-data:/var/lib/mysql
       - ./00-db_redis/mariadb/init.sql.mariadb.template:/templates/init.sql.template
       - ./00-db_redis/mariadb/entrypoint-mariadb.sh:/entrypoint.sh
     tmpfs:
@@ -19,8 +23,32 @@ services:
     entrypoint:
       - /entrypoint.sh
 
-  # MySQL
-  mysql:
+  # MariaDB Disk Version (named volume - persistent storage)
+  mariadb_disk:
+    profiles:
+      - mariadb_disk
+    image: mariadb:11.3
+    env_file:
+      - ./.env
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpw
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./00-db_redis/mariadb/init.sql.mariadb.template:/templates/init.sql.template
+      - ./00-db_redis/mariadb/entrypoint-mariadb.sh:/entrypoint.sh
+    entrypoint:
+      - /entrypoint.sh
+
+  # =============================================================================
+  # MySQL Services
+  # =============================================================================
+
+  # MySQL Memory Version (tmpfs - temporary storage)
+  mysql_memory:
+    profiles:
+      - mysql_memory
     image: mysql:8.3
     env_file:
       - ./.env
@@ -29,7 +57,6 @@ services:
     ports:
       - "3307:3306"
     volumes:
-#      - mysql-data:/var/lib/mysql
       - ./00-db_redis/mysql/init.sql.mysql.template:/templates/init.sql.template
       - ./00-db_redis/mysql/entrypoint-mysql.sh:/entrypoint.sh
     tmpfs:
@@ -37,8 +64,32 @@ services:
     entrypoint:
       - /entrypoint.sh
 
-  # PostgreSQL
-  postgres:
+  # MySQL Disk Version (named volume - persistent storage)
+  mysql_disk:
+    profiles:
+      - mysql_disk
+    image: mysql:8.3
+    env_file:
+      - ./.env
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpw
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./00-db_redis/mysql/init.sql.mysql.template:/templates/init.sql.template
+      - ./00-db_redis/mysql/entrypoint-mysql.sh:/entrypoint.sh
+    entrypoint:
+      - /entrypoint.sh
+
+  # =============================================================================
+  # PostgreSQL Services
+  # =============================================================================
+
+  # PostgreSQL Memory Version (tmpfs - temporary storage)
+  postgres_memory:
+    profiles:
+      - postgres_memory
     image: postgres:16.3
     hostname: postgresDB
     env_file:
@@ -47,8 +98,9 @@ services:
       POSTGRES_DB: postgresDB
       POSTGRES_USER: postgresUser
       POSTGRES_PASSWORD: postgresPW
+    ports:
+      - "5432:5432"
     volumes:
-#      - postgres-data:/var/lib/postgresql/data
       - ./00-db_redis/postgres/00.postgres.init.sql.template:/templates/init.sql.template
       - ./00-db_redis/postgres/01.postgres.init.passkey.sql:/01.postgres.init.passkey.sql
       - ./00-db_redis/postgres/02.postgres.init.passkey_admin.sql:/02.postgres.init.passkey_admin.sql
@@ -56,16 +108,44 @@ services:
     tmpfs:
       - /var/lib/postgresql/data
     entrypoint:
-    - /entrypoint.sh
+      - /entrypoint.sh
+
+  # PostgreSQL Disk Version (named volume - persistent storage)
+  postgres_disk:
+    profiles:
+      - postgres_disk
+    image: postgres:16.3
+    hostname: postgresDB
+    env_file:
+      - ./.env
+    environment:
+      POSTGRES_DB: postgresDB
+      POSTGRES_USER: postgresUser
+      POSTGRES_PASSWORD: postgresPW
     ports:
       - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./00-db_redis/postgres/00.postgres.init.sql.template:/templates/init.sql.template
+      - ./00-db_redis/postgres/01.postgres.init.passkey.sql:/01.postgres.init.passkey.sql
+      - ./00-db_redis/postgres/02.postgres.init.passkey_admin.sql:/02.postgres.init.passkey_admin.sql
+      - ./00-db_redis/postgres/entrypoint-postgres.sh:/entrypoint.sh
+    entrypoint:
+      - /entrypoint.sh
 
+  # =============================================================================
+  # Redis
+  # =============================================================================
   redis:
     image: redis:latest
     hostname: redis
     ports:
       - "6379:6379"
     restart: always
+
+  # =============================================================================
+  # Passkey Services
+  # =============================================================================
 
   passkey-server:
     image: ${PASSKEY_SERVER_IMAGE}
@@ -77,9 +157,29 @@ services:
     volumes:
       - ./01-passkey-server/application-override.yml:/config/application-override.yml
     ports:
-      - "8080:8080"  # service port
+      - "8080:8080"
     depends_on:
-      - ${PASSKEY_DB_TYPE}
+      mariadb_memory:
+        condition: service_started
+        required: false
+      mariadb_disk:
+        condition: service_started
+        required: false
+      mysql_memory:
+        condition: service_started
+        required: false
+      mysql_disk:
+        condition: service_started
+        required: false
+      postgres_memory:
+        condition: service_started
+        required: false
+      postgres_disk:
+        condition: service_started
+        required: false
+      redis:
+        condition: service_started
+        required: true
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -90,11 +190,31 @@ services:
     environment:
       - SPRING_CONFIG_ADDITIONAL_LOCATION=file:/config/application-override.yml
     volumes:
-    - ./02-passkey-metadata-manager/application-override.yml:/config/application-override.yml
+      - ./02-passkey-metadata-manager/application-override.yml:/config/application-override.yml
     ports:
-      - "8088:8088"  # service port
+      - "8088:8088"
     depends_on:
-      - ${PASSKEY_DB_TYPE}
+      mariadb_memory:
+        condition: service_started
+        required: false
+      mariadb_disk:
+        condition: service_started
+        required: false
+      mysql_memory:
+        condition: service_started
+        required: false
+      mysql_disk:
+        condition: service_started
+        required: false
+      postgres_memory:
+        condition: service_started
+        required: false
+      postgres_disk:
+        condition: service_started
+        required: false
+      redis:
+        condition: service_started
+        required: true
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -107,12 +227,37 @@ services:
     volumes:
       - ./03-passkey-admin/application-override.yml:/config/application-override.yml
     ports:
-      - "8001:8001"  # service port
+      - "8001:8001"
     depends_on:
-      - ${PASSKEY_DB_TYPE}
+      mariadb_memory:
+        condition: service_started
+        required: false
+      mariadb_disk:
+        condition: service_started
+        required: false
+      mysql_memory:
+        condition: service_started
+        required: false
+      mysql_disk:
+        condition: service_started
+        required: false
+      postgres_memory:
+        condition: service_started
+        required: false
+      postgres_disk:
+        condition: service_started
+        required: false
+      redis:
+        condition: service_started
+        required: true
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+# =============================================================================
+# Named Volumes (Used when PASSKEY_STORAGE_TYPE=disk)
+# Description: Persistent storage volumes for databases
+# 설명: 데이터베이스를 위한 영구 저장소 볼륨
+# =============================================================================
 volumes:
   mariadb-data:
   mysql-data:

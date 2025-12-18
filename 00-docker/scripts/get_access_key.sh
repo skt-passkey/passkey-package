@@ -30,8 +30,9 @@ echo "   LICENSE_KEY: ${LICENSE_KEY_SHORT}..." >&2
 echo "" >&2
 echo "🔗 Sending request to ECR API..." >&2
 
-# POST 요청 보내기 - 응답은 stdout으로, 진행 표시는 stderr로
-RESPONSE=$(curl -s -X POST "$API_URL" \
+# POST 요청 보내기 - HTTP 상태 코드와 본문 분리
+# -w "%{http_code}" : 마지막에 HTTP 상태 코드 출력
+HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$API_URL" \
     -H "accept: application/json;charset=UTF-8" \
     -H "Content-Type: application/json;charset=UTF-8" \
     -d '{
@@ -39,17 +40,36 @@ RESPONSE=$(curl -s -X POST "$API_URL" \
             "image": "'"$IMAGE"'"
         }')
 
-# API 응답 확인 - error 필드가 있는지 체크
-if echo "$RESPONSE" | grep -q '"error"'; then
+# curl 실행 실패 확인
+if [ $? -ne 0 ]; then
+    echo "❌ Error: Failed to execute curl command" >&2
+    exit 1
+fi
+
+# 상태 코드와 본문 분리
+HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n1)
+HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+
+# HTTP 상태 코드 확인 (200 OK가 아니면 에러 처리)
+if [ "$HTTP_STATUS" -ne 200 ]; then
+    echo "" >&2
+    echo "❌ API Request Failed (Status: $HTTP_STATUS)" >&2
+    echo "Response Body:" >&2
+    echo "$HTTP_BODY" >&2
+    exit 1
+fi
+
+# API 응답 확인 - error 필드가 있는지 체크 (200 OK라도 에러 메시지가 있을 수 있음)
+if echo "$HTTP_BODY" | grep -q '"error"'; then
     echo "" >&2
     echo "❌ API Error Response:" >&2
-    echo "$RESPONSE" >&2
+    echo "$HTTP_BODY" >&2
     echo "✗ API request failed" >&2
     exit 1
 fi
 
 # 성공 응답 출력
-echo "$RESPONSE"
+echo "$HTTP_BODY"
 
 echo "" >&2
 echo "✓ API request completed" >&2

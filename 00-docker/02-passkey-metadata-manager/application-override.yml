@@ -5,6 +5,6 @@ spring:
     hibernate:
       ddl-auto: validate # jpa ddl-auto 설정 update / validate / none
   datasource:
-    url: ${PASSKEY_DB_URL}/passkey
+    url: ${PASSKEY_${PASSKEY_DB_TYPE:postgres}_URL}/passkey
     username: ${PASSKEY_DB_USER}
     password: ${PASSKEY_DB_PW}

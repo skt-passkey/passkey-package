@@ -38,8 +38,15 @@ DATA_SECTION=$(echo "$OUTPUT" | sed -n '/"data"/,/}/p' | head -20)
 # loginCommand 추출 - "docker login" 문자열로 시작하는 부분
 LOGIN_COMMAND=$(echo "$DATA_SECTION" | grep -o '"docker login[^"]*"' | sed 's/"//g' | head -1)
 
-# imageUri 추출 - "dkr.ecr" 또는 "amazonaws" 포함하는 URI
-IMAGE_URI=$(echo "$DATA_SECTION" | grep -o '"[0-9]*\.dkr\.ecr\.[a-z0-9-]*\.amazonaws\.com/[^"]*"' | sed 's/"//g' | head -1)
+# imageUri 추출 - 여러 형식 지원
+# 먼저 "imageUri" 필드 찾기
+IMAGE_URI=$(echo "$DATA_SECTION" | grep -o '"imageUri"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4 | head -1)
+
+# imageUri가 없으면 다른 형식 시도
+if [ -z "$IMAGE_URI" ]; then
+    # ECR URL 패턴으로 직접 추출
+    IMAGE_URI=$(echo "$DATA_SECTION" | grep -oE '[0-9]{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com/[^"[:space:]]*' | head -1)
+fi
 
 if [ -z "$LOGIN_COMMAND" ]; then
   echo "❌ Error: Failed to extract login command from response"
